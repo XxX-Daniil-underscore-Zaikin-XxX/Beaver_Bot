@@ -2,9 +2,7 @@ import discord
 import os
 import subprocess
 
-#import discord
 from discord.ext import commands,tasks
-#import os
 from dotenv import load_dotenv
 import youtube_dl
 
@@ -26,6 +24,8 @@ ytdl_format_options = {
     'ignoreerrors': False,
     'logtostderr': False,
     'quiet': True,
+    'username': os.getenv("username"),
+    'password': os.getenv("password"),
     'no_warnings': True,
     'default_search': 'auto',
     'source_address': '0.0.0.0' # bind to ipv4 since ipv6 addresses cause issues sometimes
