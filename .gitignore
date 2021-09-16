@@ -1,0 +1,6 @@
+*.m4a
+*.webm
+*.mp3
+*.exe
+.env*
+*.png
