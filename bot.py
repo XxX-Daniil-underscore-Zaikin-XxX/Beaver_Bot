@@ -1,6 +1,7 @@
 import discord
 import os
 import subprocess
+import asyncio
 
 from discord.ext import commands,tasks
 from dotenv import load_dotenv
@@ -37,6 +38,44 @@ ffmpeg_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
+class Song:
+
+    def __init__(self, url, loop=None):
+        self.loop = loop if loop else asyncio.get_event_loop()
+        self.url = url
+        self.data = None
+
+    async def download_info(self):
+        self.data = await self.loop.run_in_executor(None, lambda: ytdl.extract_info(self.url, download=0))
+
+    async def download_song(self):
+        data = await self.loop.run_in_executor(None, lambda: ytdl.extract_info(self.url, download=1))
+
+async def download_info(url, loop):
+    loop = loop if loop else asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=0))
+    duration, filesize = 0, 0
+    if 'entries' in data:
+        data = data['entries'][0]
+    if 'duration' in data:
+        duration = data['duration']
+    if 'filesize' in data:
+        filesize = data['filesize']
+    filename = data['title']
+    return filename
+
+async def query_youtube_info(search, loop):
+    song = Song(search, loop)
+    song.download_info()
+    return await song.data
+
+@bot.command(name='getinfo', help='Gets a bit of info about a song')
+async def get_song_info(ctx, *search):
+    data = await query_youtube_info(' '.join(search), bot.loop)
+    await ctx.send("Filename: " + data['title'])
+    #await ctx.send("Duration: " + duration)
+    #await ctx.send("Filesize: " + filesize)
+
 async def download_youtube(url, loop):
     loop = loop if loop else asyncio.get_event_loop()
     data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=1))
@@ -67,10 +106,13 @@ async def play_url(ctx, url):
 
         async with ctx.typing():
             filename = await download_youtube(url, loop = bot.loop)
-            voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source=filename))
+            voice_channel.play(discord.FFmpegPCMAudio(executable="ffmpeg.exe", source=filename), after=lambda e: delete_file(filename))
         await ctx.send('Now playing: {}'.format(filename))
     except:
         await ctx.send("The bot ain't in a voice channel")
+
+def delete_file(filename):
+    os.remove(filename)
 
 @bot.command(name='p_search', help='To play song (but you gotta search)')
 async def play_search(ctx, *searches):
@@ -80,7 +122,7 @@ async def play_search(ctx, *searches):
 async def pause(ctx):
     voice_client = ctx.message.guild.voice_client
     if voice_client.is_playing():
-        await voice_client.pause()
+        voice_client.pause()
     else:
         await ctx.send("The bot is not playing anything at the moment.")
     
@@ -88,7 +130,7 @@ async def pause(ctx):
 async def resume(ctx):
     voice_client = ctx.message.guild.voice_client
     if voice_client.is_paused():
-        await voice_client.resume()
+        voice_client.resume()
     else:
         await ctx.send("The bot was not playing anything before this. Use play_song command")
 
