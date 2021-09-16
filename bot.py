@@ -48,6 +48,11 @@ class Song:
     async def download_info(self):
         self.data = await self.loop.run_in_executor(None, lambda: ytdl.extract_info(self.url, download=0))
 
+    async def get_data(self):
+        if not self.data:
+            await self.download_info()
+        return self.data
+
     async def download_song(self):
         data = await self.loop.run_in_executor(None, lambda: ytdl.extract_info(self.url, download=1))
 
@@ -66,13 +71,13 @@ async def download_info(url, loop):
 
 async def query_youtube_info(search, loop):
     song = Song(search, loop)
-    song.download_info()
-    return await song.data
+    await song.download_info()
+    return song.data
 
 @bot.command(name='getinfo', help='Gets a bit of info about a song')
 async def get_song_info(ctx, *search):
     data = await query_youtube_info(' '.join(search), bot.loop)
-    await ctx.send("Filename: " + data['title'])
+    await ctx.send("Filename: " + data['entries'][0]['title'])
     #await ctx.send("Duration: " + duration)
     #await ctx.send("Filesize: " + filesize)
 
