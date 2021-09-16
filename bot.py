@@ -11,7 +11,7 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("discord_token")
 
-bot = commands.Bot(command_prefix='.')
+bot = commands.Bot(command_prefix='|')
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -36,7 +36,6 @@ ffmpeg_options = {
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
 class Song:
-
     def __init__(self, url, loop=None):
         self.loop = loop if loop else asyncio.get_event_loop()
         self.url = url
@@ -53,6 +52,8 @@ class Song:
     async def download_song(self):
         data = await self.loop.run_in_executor(None, lambda: ytdl.extract_info(self.url, download=1))
 
+song_queue = []
+
 async def download_info(url, loop):
     '''Download the video from given url'''
     loop = loop if loop else asyncio.get_event_loop()
@@ -66,6 +67,19 @@ async def download_info(url, loop):
         filesize = data['filesize']
     filename = data['title']
     return filename
+
+@bot.command()
+async def queue(ctx, url):
+    '''Adds a song to the queue'''
+    if not len(song_queue):
+        # Queue empty
+        return Song(url, loop=bot.loop)
+    
+    # Queue has songs in it -> Add to queue and play top
+    song_queue.append(Song(url, loop=bot.loop))
+    await ctx.send(f"{ctx.author} has added to the queue!")
+    return song_queue.pop(0)
+        
 
 async def query_youtube_info(search, loop):
     '''Get information about a song'''
@@ -120,8 +134,9 @@ async def play(ctx, *, search):
             url = search
         # Make the bot look like it's typing
         async with ctx.typing():
-            # Get the path of youtube video
-            filename = await download_youtube(url, loop=bot.loop)
+            # Get Song instance from queue
+            song_to_play = await queue(ctx, url)
+            filename = await download_youtube(song_to_play.url, loop=bot.loop)
             # Play the song in the voice channel
             voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
                                                       source=filename), 
