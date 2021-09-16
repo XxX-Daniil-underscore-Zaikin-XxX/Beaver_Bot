@@ -11,7 +11,7 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("discord_token")
 
-bot = commands.Bot(command_prefix='$')
+bot = commands.Bot(command_prefix='|')
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -100,7 +100,6 @@ async def join(ctx):
         # Invoking user not in a voice chat 
         await ctx.send(f"{ctx.mesage.author.name} is not connected to a voice channel")
         return
-   
     # Connect to channel with user
     channel = ctx.message.author.voice.channel
     await channel.connect()
@@ -112,7 +111,7 @@ async def play(ctx, *, search):
     voice_channel = server.voice_client
     if voice_channel is None:
         # Bot needs to join a voice channel
-        join(ctx)
+        await join(ctx)
     try :
         if search[:3] != "http":
             # User is searching via words
@@ -128,9 +127,10 @@ async def play(ctx, *, search):
                                                       source=filename), 
                                                       after=lambda: delete_files(filename))
         await ctx.send(f"Now playing: {filename}")
-    except:
+    except Exception as e:
         # TODO: Make this more detailed!
         # Some Error
+        print(e)
         await ctx.send("Something went wrong!")
 
 def delete_files(filename):
