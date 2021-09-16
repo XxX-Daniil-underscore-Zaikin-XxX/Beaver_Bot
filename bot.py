@@ -11,7 +11,7 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("discord_token")
 
-bot = commands.Bot(command_prefix='|')
+bot = commands.Bot(command_prefix='.')
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
