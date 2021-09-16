@@ -16,7 +16,7 @@ DISCORD_TOKEN = os.getenv("discord_token")
 #bot = commands.Bot(command_prefix='|', intents=intents)
 
 #youtube_dl.utils.bug_reports_message = lambda: ''
-bot = commands.Bot(command_prefix='|')
+bot = commands.Bot(command_prefix='.')
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
@@ -87,6 +87,34 @@ class YoutubeQuery:
         data = await self.download(YoutubeQuery.get_songs_from_data(self.get_data())[index]['webpage-url'], download_full=True)
         return ytdl.prepare_filename(YoutubeQuery.get_songs_from_data(data)[0])
 
+song_queue = []
+
+async def download_info(url, loop):
+    '''Download the video from given url'''
+    loop = loop if loop else asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=0))
+    duration, filesize = 0, 0
+    if 'entries' in data:
+        data = data['entries'][0]
+    if 'duration' in data:
+        duration = data['duration']
+    if 'filesize' in data:
+        filesize = data['filesize']
+    filename = data['title']
+    return filename
+
+@bot.command()
+async def queue(ctx, url):
+    '''Adds a song to the queue'''
+    if not len(song_queue):
+        # Queue empty
+        return YoutubeQuery(url, loop=bot.loop)
+    
+    # Queue has songs in it -> Add to queue and play top
+    song_queue.append(YoutubeQuery(url, loop=bot.loop))
+    await ctx.send(f"{ctx.author} has added to the queue!")
+    return song_queue.pop(0)
+        
 
 async def query_youtube_info(search, loop):
     song = YoutubeQuery(search, loop)
@@ -140,8 +168,9 @@ async def play(ctx, *, search):
             url = search
         # Make the bot look like it's typing
         async with ctx.typing():
-            # Get the path of youtube video
-            filename = await download_youtube(url, loop=bot.loop)
+            # Get Song instance from queue
+            song_to_play = await queue(ctx, url)
+            filename = await download_youtube(song_to_play.url, loop=bot.loop)
             # Play the song in the voice channel
             voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
                                                       source=filename), 
