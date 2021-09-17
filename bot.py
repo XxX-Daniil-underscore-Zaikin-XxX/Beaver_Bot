@@ -196,8 +196,8 @@ class SongQueue:
         self.currently_playing = False
 
     def is_currently_playing(self):
-        if self.ctx == None: return False
-        return self.ctx.message.guild.voice_client.is_playing()
+        if self.voice_channel == None: return False
+        return self.voice_channel.is_playing()
 
     def set_channel(self, voice_channel):
         self.voice_channel = voice_channel
@@ -206,7 +206,7 @@ class SongQueue:
         self.ctx = ctx
 
     def insert_song(self, song, index):
-        self.songs[index:index] = song
+        self.songs[index:index] = [song]
 
     def push_song(self, song):
         size = len(self.songs)
@@ -233,15 +233,25 @@ class SongQueue:
             func = self.play_song_after_song_at
         await self.play_song_at(self.current_song, func)
 
+    def clear_songs(self):
+        self.songs = []
+        current_song = 0
+
     async def play_song_at(self, index, func=None):
         async with self.ctx.typing():
             song = self.songs[index]
             if not song.is_downloaded: await download_existing_song(song)
             self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
                                                         source=song.filename), 
-                                                        after=lambda: func())
+                                                        after=func)
             self.currently_playing = True
         await self.ctx.message(f"Now Playing: {song.title}")
+
+    async def pause(self):
+        if self.is_currently_playing(): await self.voice_channel.pause()
+    
+    async def resume(self):
+        if self.current_song < len(self.songs) and not self.is_currently_playing(): await self.voice_channel.resume()
 
 song_queue = SongQueue(bot.loop, ytdl)
 
@@ -277,7 +287,7 @@ async def play(ctx, *, search):
     song = await query.download_from_list(0)
     song_queue.push_song(song)
     
-    if not song_queue.currently_playing: song_queue.play_current_song()
+    if not song_queue.currently_playing: await song_queue.play_current_song()
     # Make the bot look like it's typing
     async with ctx.typing():
         # Get Song instance from queue
