@@ -237,6 +237,19 @@ class SongQueue:
         
         # Remove from the queue
         del self.songs[index]
+
+    async def play_song_after_current(self):
+        """
+        Play the song after current index 
+        """
+        self.current_song = self.current_song + 1
+        #if self.current_song >= len(self.songs):
+           # self.songs[self.current_song - 1].delete_downloaded_file()
+        if self.current_song < len(self.songs) :
+            # We are in bounds
+            #if self.songs[self.current_song].filename != self.songs[self.current_song - 1].filename:
+                #self.songs[self.current_song - 1].delete_downloaded_file()
+            await self.play_current_song()
             
     async def play_current_song(self, func=None):
         """
@@ -244,6 +257,7 @@ class SongQueue:
         Starts recurrent song playing.
         If func is None, play all songs in sequence
         """
+        print("penis shit fuck")
         if func == None:
             # Play in sequence
             func = lambda x: self.remove_song(x)
@@ -257,15 +271,17 @@ class SongQueue:
         """
         Play the song at given index
         """
-        song = self.songs[index]
-        if not song.is_downloaded: await download_existing_song(song)
-        if self.ctx != None and self.voice_channel == None: 
-            await join(self.ctx)
-            self.voice_channel = self.ctx.message.guild.voice_client
-        self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
-                                                       source=song.filename), 
-                                                       after=lambda e: func)
-        await self.ctx.send(f"Now Playing: {song.title}")
+        async with self.ctx.typing():
+            song = self.songs[index]
+            if not song.is_downloaded: await download_existing_song(song)
+            if self.ctx != None and self.voice_channel == None: 
+                await join(self.ctx)
+                self.voice_channel = self.ctx.message.guild.voice_client
+            self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
+                                                        source=song.filename))
+            await self.ctx.send(f"Now Playing: {song.title}")
+        await asyncio.sleep(song.duration)
+        await self.play_song_after_current()
 
     async def pause(self):
         if self.is_currently_playing(): await self.voice_channel.pause()
@@ -312,13 +328,12 @@ async def play(ctx, *, search):
         url = "ytsearch1: " + search
     else:
         url = search
-    async with ctx.typing():
-        query = YoutubeQuery(url, bot.loop)
-        data = await query.get_data()
-        song = YoutubeQuery.get_songs_from_data(data)[0]
-        await song_queue.push_song(song)
-        if not song_queue.is_currently_playing(): 
-            await song_queue.play_current_song()
+    query = YoutubeQuery(url, bot.loop)
+    data = await query.get_data()
+    song = YoutubeQuery.get_songs_from_data(data)[0]
+    await song_queue.push_song(song)
+    if not song_queue.is_currently_playing(): 
+        await song_queue.play_current_song()
 
 def delete_files(filename):
     '''Delete the file at given filepath'''
