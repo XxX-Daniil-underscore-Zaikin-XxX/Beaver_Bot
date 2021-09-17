@@ -230,11 +230,12 @@ class SongQueue:
         """
         self.songs[index:index] = [song]
 
-    def push_song(self, song):
+    async def push_song(self, song):
         """
         Add a song to the end of the queue
         """
         self.songs.append(song)
+        await self.ctx.send(f"{self.ctx.author} has queued {song.title}")
 
     def remove_song(self, index):
         """
@@ -332,7 +333,7 @@ async def play(ctx, *, search):
 
     query = YoutubeQuery(url, bot.loop)
     song = await query.download_from_list(0)
-    song_queue.push_song(song)
+    await song_queue.push_song(song)
     
     if not song_queue.is_currently_playing(): await song_queue.play_current_song()
     # Make the bot look like it's typing
