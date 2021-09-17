@@ -231,5 +231,4 @@ async def leave(ctx):
         await ctx.send("The bot is not connected to a voice channel.")
 
 if __name__ == "__main__":
-    # SOME USELESS COMMENTS!
     bot.run(DISCORD_TOKEN)
