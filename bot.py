@@ -251,7 +251,6 @@ class SongQueue:
                 self.songs[self.current_song - 1].delete_downloaded_file()
             await self.play_current_song()
             
-
     async def play_current_song(self, func=None):
         """
         Play song at current queue index
@@ -261,7 +260,7 @@ class SongQueue:
         print("penis shit fuck")
         if func == None:
             # Play in sequence
-            func = self.play_song_after_current
+            func = lambda x: self.remove_song(x)
         await self.play_song_at(self.current_song, func)
 
     def clear_songs(self):
@@ -339,6 +338,20 @@ async def play(ctx, *, search):
 def delete_files(filename):
     '''Delete the file at given filepath'''
     os.remove(filename)
+
+@bot.command(name='skip', help='Skip the current song')
+async def skip(ctx):
+    """
+    Skip the song currently playing
+    """
+    if song_queue.current_song >= len(song_queue.songs):
+        # We are out of bounds
+        return
+    
+    # Skip the song
+    ctx.message.guild.voice_client.stop()
+    song_queue.current_song += 1
+    await song_queue.play_current_song()
 
 @bot.command(name='pause', help='This command pauses the song')
 async def pause(ctx):
