@@ -259,7 +259,7 @@ class SongQueue:
         """
         if func == None:
             # Play in sequence
-            func = lambda x: self.remove_song(x)
+            func = self.play_song_after_current
         await self.play_song_at(self.current_song, func)
 
     def clear_songs(self):
