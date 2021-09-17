@@ -243,12 +243,12 @@ class SongQueue:
         Play the song after current index 
         """
         self.current_song = self.current_song + 1
-        #if self.current_song >= len(self.songs):
-           # self.songs[self.current_song - 1].delete_downloaded_file()
+        if self.current_song >= len(self.songs):
+           self.songs[self.current_song - 1].delete_downloaded_file()
         if self.current_song < len(self.songs) :
             # We are in bounds
-            #if self.songs[self.current_song].filename != self.songs[self.current_song - 1].filename:
-                #self.songs[self.current_song - 1].delete_downloaded_file()
+            if self.songs[self.current_song].filename != self.songs[self.current_song - 1].filename:
+                self.songs[self.current_song - 1].delete_downloaded_file()
             await self.play_current_song()
             
     async def play_current_song(self, func=None):
@@ -280,7 +280,7 @@ class SongQueue:
                                                         source=song.filename))
             await self.ctx.send(f"Now Playing: {song.title}")
         await asyncio.sleep(song.duration)
-        await self.play_song_after_current()
+        await func()
 
     async def pause(self):
         if self.is_currently_playing(): await self.voice_channel.pause()
