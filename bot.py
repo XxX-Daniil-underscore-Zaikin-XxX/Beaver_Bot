@@ -257,7 +257,6 @@ class SongQueue:
         Starts recurrent song playing.
         If func is None, play all songs in sequence
         """
-        print("penis shit fuck")
         if func == None:
             # Play in sequence
             func = lambda x: self.remove_song(x)
