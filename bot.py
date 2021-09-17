@@ -12,6 +12,9 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("discord_token")
 
+# Global var for whether the user is currently searching through a list of songs to play
+is_searching = False
+
 #intents = discord.Intents().all()
 #bot = commands.Bot(command_prefix='|', intents=intents)
 
@@ -63,29 +66,66 @@ class YoutubeQuery:
         return self.data
 
     @staticmethod
-    async def get_songs_from_data(data):
+    def get_songs_from_data(data):
         """
         Returns array of all songs returned from search (or array with single element if only one song returned)
         """
-        if data['entries']:
+        return [YoutubeQuery.entry_into_song(entry) for entry in YoutubeQuery.get_formatted_data(data)]
+
+    @staticmethod
+    def get_formatted_data(data):
+        if 'entries' in data:
             return data['entries']
         else:
             return [data]
+
+    @staticmethod
+    def entry_into_song(entry):
+        return Song(entry['title'], entry['duration'], entry['webpage_url'])
 
     async def format_songs(self):
         """
         Returns discord-formatted string of the searched songs
         """
         data = await self.get_data()
-        songs_data = await YoutubeQuery.get_songs_from_data(data)
-        return '\n'.join(["```"] + [str(ind + 1) + '\t' + str(datetime.timedelta(seconds=datum['duration'])) + '\t' + datum['title'] for ind, datum in enumerate(songs_data)] + ["\n```"])
+        songs_data = YoutubeQuery.get_songs_from_data(data)
+        return '\n'.join(["```"] + [str(ind + 1) + '\t' + str(song) for ind, song in enumerate(songs_data)] + ["\n```"])
 
     async def download_from_list(self, index):
         """
         Fully downloads a song of the given index from the searched list, and returns its filename
         """
-        data = await self.download(YoutubeQuery.get_songs_from_data(self.get_data())[index]['webpage-url'], download_full=True)
-        return ytdl.prepare_filename(YoutubeQuery.get_songs_from_data(data)[0])
+        data = await self.get_data()
+        song = YoutubeQuery.get_songs_from_data(data)[index]
+        download_data = await self.download(song.url, self.loop, download_full=True)
+        filename = ytdl.prepare_filename(YoutubeQuery.get_formatted_data(download_data)[0])
+        song.set_downloaded_file(filename)
+        return song
+
+class Song:
+
+    def __init__(self, title, duration, url, filename=None):
+        self.title = title
+        self.duration = duration
+        self.is_downloaded = not(filename == None)
+        self.filename = filename
+        self.url = url
+
+    def set_downloaded_file(self, filename):
+        self.filename = filename
+        self.is_downloaded = True
+
+    def delete_downloaded_file(self):
+        os.remove(self.filename)
+        self.filename = None
+        self.is_downloaded = False
+
+    def __str__(self) -> str:
+        return self.title + '\t' + str(datetime.timedelta(seconds=self.duration))
+
+async def download_existing_song(song: Song):
+    download_data = await YoutubeQuery.download(Song.url, bot.loop, download_full=True)
+    song.set_downloaded_file(ytdl.prepare_filename(download_data))
 
 song_queue = []
 
@@ -123,10 +163,12 @@ async def query_youtube_info(search, loop):
 @bot.command(name='getinfo', help='Gets a bit of info about a song')
 async def get_song_info(ctx, *, search):
     '''Send song information to chat'''
-    songs = YoutubeQuery("ytsearch10: " + search)
-    str = await songs.format_songs()
+    async with ctx.typing:
+        songs = YoutubeQuery("ytsearch10: " + search)
+        str = await songs.format_songs()
     await ctx.send(str)
 
+"""
 async def download_youtube(url, loop):
     '''Download YouTube video from url'''
     loop = loop if loop else asyncio.get_event_loop()
@@ -140,6 +182,7 @@ async def download_youtube(url, loop):
     # Get file path
     filename = ytdl.prepare_filename(data)
     return filename
+"""
 
 @bot.command(name='join', help='Tells bot to join')
 async def join(ctx):
@@ -156,31 +199,35 @@ async def join(ctx):
 async def play(ctx, *, search):
     '''Play a song with the given name'''
     server = ctx.message.guild
-    voice_channel = server.voice_client
-    if voice_channel is None:
+    if server.voice_client is None:
         # Bot needs to join a voice channel
         await join(ctx)
-    try :
-        if search[:3] != "http":
-            # User is searching via words
-            url = "ytsearch1:" + search
-        else:
-            url = search
-        # Make the bot look like it's typing
-        async with ctx.typing():
-            # Get Song instance from queue
-            song_to_play = await queue(ctx, url)
-            filename = await download_youtube(song_to_play.url, loop=bot.loop)
-            # Play the song in the voice channel
-            voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
-                                                      source=filename), 
-                                                      after=lambda: delete_files(filename))
-        await ctx.send(f"Now playing: {filename}")
-    except Exception as e:
-        # TODO: Make this more detailed!
-        # Some Error
-        print(e)
-        await ctx.send("Something went wrong!")
+    voice_channel = server.voice_client
+    # try :
+    if search[:3] != "http":
+        # User is searching via words
+        url = "ytsearch1: " + search
+    else:
+        url = search
+    # Make the bot look like it's typing
+    async with ctx.typing():
+        # Get Song instance from queue
+
+        # song_to_play = await queue(ctx, url)
+        # filename = await download_youtube(song_to_play.url, loop=bot.loop)
+
+        query = YoutubeQuery(url, bot.loop)
+        song = await query.download_from_list(0)
+        # Play the song in the voice channel
+        voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
+                                                    source=song.filename), 
+                                                    after=lambda: song.delete_downloaded_file())
+    await ctx.send(f"Now playing: {song.title}")
+    # except Exception as e:
+    #     # TODO: Make this more detailed!
+    #     # Some Error
+    #     print(e)
+    #     await ctx.send("Something went wrong!")
 
 def delete_files(filename):
     '''Delete the file at given filepath'''
