@@ -330,7 +330,7 @@ async def play(ctx, *, search):
     song = await query.download_from_list(0)
     song_queue.push_song(song)
     
-    if not song_queue.currently_playing: await song_queue.play_current_song()
+    if not song_queue.is_currently_playing(): await song_queue.play_current_song()
     # Make the bot look like it's typing
     async with ctx.typing():
         # Get Song instance from queue
