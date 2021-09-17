@@ -53,7 +53,8 @@ class YoutubeQuery:
     @staticmethod
     async def download(url, loop, download_full=False):
         """
-        Downloads youtube video from given url. download_full determines whether the file is downloaded alongside
+        Downloads youtube video from given url. 
+        Download_full determines whether the file is downloaded alongside
         """
         return await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=download_full))
 
@@ -68,19 +69,26 @@ class YoutubeQuery:
     @staticmethod
     def get_songs_from_data(data):
         """
-        Returns array of all songs returned from search (or array with single element if only one song returned)
+        Returns array of all songs (Song) returned from search 
+        (or array with single element if only one song returned)
         """
-        return [YoutubeQuery.entry_into_song(entry) for entry in YoutubeQuery.get_formatted_data(data)]
+        return [YoutubeQuery.entry_to_song(entry) for entry in YoutubeQuery.get_formatted_data(data)]
 
     @staticmethod
     def get_formatted_data(data):
+        """
+        Get song data from dictionary
+        """
         if 'entries' in data:
             return data['entries']
         else:
             return [data]
 
     @staticmethod
-    def entry_into_song(entry):
+    def entry_to_song(entry):
+        """
+        Convert entry into a Song object
+        """
         return Song(entry['title'], entry['duration'], entry['webpage_url'])
 
     async def format_songs(self):
@@ -93,7 +101,8 @@ class YoutubeQuery:
 
     async def download_from_list(self, index):
         """
-        Fully downloads a song of the given index from the searched list, and returns its filename
+        Fully downloads a song of the given index 
+        from the searched list, and returns its filename
         """
         data = await self.get_data()
         song = YoutubeQuery.get_songs_from_data(data)[index]
@@ -196,50 +205,84 @@ class SongQueue:
         self.currently_playing = False
 
     def is_currently_playing(self):
+        """
+        Check if the bot is currently playing a song
+        Return True if playing / False otherwise
+        """
         if self.ctx == None: return False
         return self.ctx.message.guild.voice_client.is_playing()
 
     def set_channel(self, voice_channel):
+        """
+        Set the bot's voice channel
+        """
         self.voice_channel = voice_channel
 
     def set_ctx(self, ctx):
+        """
+        Set the context of discord client
+        """
         self.ctx = ctx
 
     def insert_song(self, song, index):
-        self.songs[index:index] = song
+        """
+        Inset a song into the queue at position index
+        """
+        self.songs[index:index] = [song]
 
     def push_song(self, song):
-        size = len(self.songs)
-        if size == 0:
-            self.songs = [song]
-        else:
-            self.insert_song(song, size - 1)
+        """
+        Add a song to the end of the queue
+        """
+        self.songs.append(song)
 
     def remove_song(self, index):
-        if self.songs[index].is_downloaded:
-            self.songs[index].delete_downloaded_file()
-        del self.songs[index]
+        """
+        Remove a song at the given index
+        """
         if index <= self.current_song:
-            self.current_song -= 1
+            # The song has already been played
+            # or is currently playing
+            return
+        
+        if self.songs[index].is_downloaded:
+            # Delete the file on disk
+            self.songs[index].delete_downloaded_file()
+        
+        # Remove from the queue
+        del self.songs[index]
 
     async def play_song_after_song_at(self, index):
+        """
+        Play the song after current index 
+        """
         self.songs[index].delete_downloaded_file()
         self.current_song = index + 1
         if self.current_song < len(self.songs) :
+            # We are in bounds
             self.play_current_song()
 
     async def play_current_song(self, func=None):
+        """
+        Play song at current queue index
+        Starts recurrent song playing.
+        If func is None, play all songs in sequence
+        """
         if func == None:
+            # Play in sequence
             func = self.play_song_after_song_at
         await self.play_song_at(self.current_song, func)
 
     async def play_song_at(self, index, func=None):
+        """
+        Play the song at given index
+        """
         async with self.ctx.typing():
             song = self.songs[index]
             if not song.is_downloaded: await download_existing_song(song)
             self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
                                                         source=song.filename), 
-                                                        after=lambda: func())
+                                                        after=func)
             self.currently_playing = True
         await self.ctx.message(f"Now Playing: {song.title}")
 
@@ -277,7 +320,7 @@ async def play(ctx, *, search):
     song = await query.download_from_list(0)
     song_queue.push_song(song)
     
-    if not song_queue.currently_playing: song_queue.play_current_song()
+    if not song_queue.currently_playing: await song_queue.play_current_song()
     # Make the bot look like it's typing
     async with ctx.typing():
         # Get Song instance from queue
