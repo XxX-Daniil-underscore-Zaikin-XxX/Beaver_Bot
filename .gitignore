@@ -4,3 +4,4 @@
 *.exe
 .env*
 *.png
+*.video*
