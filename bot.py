@@ -44,7 +44,6 @@ ffmpeg_options = {
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
 class YoutubeQuery:
-
     def __init__(self, url, loop=None):
         self.loop = loop if loop else asyncio.get_event_loop()
         self.url = url
@@ -112,7 +111,6 @@ class YoutubeQuery:
         return song
 
 class Song:
-
     def __init__(self, title, duration, url, filename=None):
         self.title = title
         self.duration = duration
@@ -131,52 +129,6 @@ class Song:
 
     def __str__(self) -> str:
         return self.title + '\t' + str(datetime.timedelta(seconds=self.duration))
-
-async def download_existing_song(song: Song):
-    download_data = await YoutubeQuery.download(song.url, bot.loop, download_full=True)
-    song.set_downloaded_file(ytdl.prepare_filename(download_data))
-
-async def download_info(url, loop):
-    '''Download the video from given url'''
-    loop = loop if loop else asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=0))
-    duration, filesize = 0, 0
-    if 'entries' in data:
-        data = data['entries'][0]
-    if 'duration' in data:
-        duration = data['duration']
-    if 'filesize' in data:
-        filesize = data['filesize']
-    filename = data['title']
-    return filename
-        
-async def query_youtube_info(search, loop):
-    song = YoutubeQuery(search, loop)
-    return await song.get_songs_from_data()
-
-@bot.command(name='getinfo', help='Gets a bit of info about a song')
-async def get_song_info(ctx, *, search):
-    '''Send song information to chat'''
-    async with ctx.typing:
-        songs = YoutubeQuery("ytsearch10: " + search)
-        str = await songs.format_songs()
-    await ctx.send(str)
-
-"""
-async def download_youtube(url, loop):
-    '''Download YouTube video from url'''
-    loop = loop if loop else asyncio.get_event_loop()
-    # Download
-    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=1))
-    if 'entries' in data:
-        data = data['entries'][0]
-    if 'duration' in data:
-        # TODO: Do something with duration 
-        duration = data['duration']
-    # Get file path
-    filename = ytdl.prepare_filename(data)
-    return filename
-"""
 
 class SongQueue:
     def __init__(self, loop, ytdl, executable="./ffmpeg.exe"):
@@ -300,6 +252,36 @@ class SongQueue:
         return '\n'.join([(f" {ind+1} " if ind != self.current_song else f"[{ind+1}]") + '\t' + str(song) for ind, song in enumerate(self.songs)])
 
 song_queue = SongQueue(bot.loop, ytdl)
+
+async def download_existing_song(song: Song):
+    download_data = await YoutubeQuery.download(song.url, bot.loop, download_full=True)
+    song.set_downloaded_file(ytdl.prepare_filename(download_data))
+
+async def download_info(url, loop):
+    '''Download the video from given url'''
+    loop = loop if loop else asyncio.get_event_loop()
+    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=0))
+    duration, filesize = 0, 0
+    if 'entries' in data:
+        data = data['entries'][0]
+    if 'duration' in data:
+        duration = data['duration']
+    if 'filesize' in data:
+        filesize = data['filesize']
+    filename = data['title']
+    return filename
+        
+async def query_youtube_info(search, loop):
+    song = YoutubeQuery(search, loop)
+    return await song.get_songs_from_data()
+
+@bot.command(name='getinfo', help='Gets a bit of info about a song')
+async def get_song_info(ctx, *, search):
+    '''Send song information to chat'''
+    async with ctx.typing:
+        songs = YoutubeQuery("ytsearch10: " + search)
+        str = await songs.format_songs()
+    await ctx.send(str)
 
 @bot.command(name='join', help='Tells bot to join')
 async def join(ctx):
