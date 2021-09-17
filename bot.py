@@ -127,7 +127,7 @@ async def download_existing_song(song: Song):
     download_data = await YoutubeQuery.download(Song.url, bot.loop, download_full=True)
     song.set_downloaded_file(ytdl.prepare_filename(download_data))
 
-song_queue = []
+
 
 async def download_info(url, loop):
     '''Download the video from given url'''
@@ -184,6 +184,67 @@ async def download_youtube(url, loop):
     return filename
 """
 
+class SongQueue:
+    def __init__(self, loop, ytdl, executable="./ffmpeg.exe"):
+        self.loop = loop if loop else asyncio.get_event_loop()
+        self.ytdl = ytdl
+        self.voice_channel = None
+        self.executable = executable
+        self.ctx = None
+        self.songs = []
+        self.current_song = 0
+        self.currently_playing = False
+
+    def is_currently_playing(self):
+        if self.ctx == None: return False
+        return self.ctx.message.guild.voice_client.is_playing()
+
+    def set_channel(self, voice_channel):
+        self.voice_channel = voice_channel
+
+    def set_ctx(self, ctx):
+        self.ctx = ctx
+
+    def insert_song(self, song, index):
+        self.songs[index:index] = song
+
+    def push_song(self, song):
+        size = len(self.songs)
+        if size == 0:
+            self.songs = [song]
+        else:
+            self.insert_song(song, size - 1)
+
+    def remove_song(self, index):
+        if self.songs[index].is_downloaded:
+            self.songs[index].delete_downloaded_file()
+        del self.songs[index]
+        if index <= self.current_song:
+            self.current_song -= 1
+
+    async def play_song_after_song_at(self, index):
+        self.songs[index].delete_downloaded_file()
+        self.current_song = index + 1
+        if self.current_song < len(self.songs) :
+            self.play_current_song()
+
+    async def play_current_song(self, func=None):
+        if func == None:
+            func = self.play_song_after_song_at
+        await self.play_song_at(self.current_song, func)
+
+    async def play_song_at(self, index, func=None):
+        async with self.ctx.typing():
+            song = self.songs[index]
+            if not song.is_downloaded: await download_existing_song(song)
+            self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
+                                                        source=song.filename), 
+                                                        after=lambda: func())
+            self.currently_playing = True
+        await self.ctx.message(f"Now Playing: {song.title}")
+
+song_queue = SongQueue(bot.loop, ytdl)
+
 @bot.command(name='join', help='Tells bot to join')
 async def join(ctx):
     '''Connect bot to voice channel'''
@@ -203,12 +264,20 @@ async def play(ctx, *, search):
         # Bot needs to join a voice channel
         await join(ctx)
     voice_channel = server.voice_client
+    song_queue.set_channel(voice_channel)
+    song_queue.set_ctx(ctx)
     # try :
     if search[:3] != "http":
         # User is searching via words
         url = "ytsearch1: " + search
     else:
         url = search
+
+    query = YoutubeQuery(url, bot.loop)
+    song = await query.download_from_list(0)
+    song_queue.push_song(song)
+    
+    if not song_queue.currently_playing: song_queue.play_current_song()
     # Make the bot look like it's typing
     async with ctx.typing():
         # Get Song instance from queue
