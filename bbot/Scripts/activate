@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Richard\Desktop\MemeProgramming\Discord Bot\Beaver_Bot\bbot"
+VIRTUAL_ENV="C:\Users\Richard\Desktop\MemeProgramming\Discord Bot\Beaver_Bot-1\bbot"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
