@@ -136,8 +136,6 @@ async def download_existing_song(song: Song):
     download_data = await YoutubeQuery.download(song.url, bot.loop, download_full=True)
     song.set_downloaded_file(ytdl.prepare_filename(download_data))
 
-
-
 async def download_info(url, loop):
     '''Download the video from given url'''
     loop = loop if loop else asyncio.get_event_loop()
@@ -150,8 +148,8 @@ async def download_info(url, loop):
     if 'filesize' in data:
         filesize = data['filesize']
     filename = data['title']
-    return filename    
-
+    return filename
+        
 async def query_youtube_info(search, loop):
     song = YoutubeQuery(search, loop)
     return await song.get_songs_from_data()
@@ -217,11 +215,12 @@ class SongQueue:
         """
         self.songs[index:index] = [song]
 
-    def push_song(self, song):
+    async def push_song(self, song):
         """
         Add a song to the end of the queue
         """
         self.songs.append(song)
+        await self.ctx.send(f"{self.ctx.author} has queued {song.title}")
 
     def remove_song(self, index):
         """
@@ -332,27 +331,8 @@ async def play(ctx, *, search):
         data = await query.get_data()
         song = YoutubeQuery.get_songs_from_data(data)[0]
         song_queue.push_song(song)
-
-        if not song_queue.is_currently_playing(): await song_queue.play_current_song()
-    # Make the bot look like it's typing
-    # async with ctx.typing():
-    #     # Get Song instance from queue
-
-    #     # song_to_play = await queue(ctx, url)
-    #     # filename = await download_youtube(song_to_play.url, loop=bot.loop)
-
-    #     query = YoutubeQuery(url, bot.loop)
-    #     song = await query.download_from_list(0)
-    #     # Play the song in the voice channel
-    #     voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
-    #                                                 source=song.filename), 
-    #                                                 after=lambda: song.delete_downloaded_file())
-    # await ctx.send(f"Now playing: {song.title}")
-    # except Exception as e:
-    #     # TODO: Make this more detailed!
-    #     # Some Error
-    #     print(e)
-    #     await ctx.send("Something went wrong!")
+        if not song_queue.is_currently_playing(): 
+            await song_queue.play_current_song()
 
 def delete_files(filename):
     '''Delete the file at given filepath'''
