@@ -106,7 +106,7 @@ class YoutubeQuery:
         """
         data = await self.get_data()
         song = YoutubeQuery.get_songs_from_data(data)[index]
-        download_data = await self.download(song.url, self.loop, download_full=True)
+        download_data = await self.download(song.url, self.loop, download_full=False)
         filename = ytdl.prepare_filename(YoutubeQuery.get_formatted_data(download_data)[0])
         song.set_downloaded_file(filename)
         return song
@@ -133,7 +133,7 @@ class Song:
         return self.title + '\t' + str(datetime.timedelta(seconds=self.duration))
 
 async def download_existing_song(song: Song):
-    download_data = await YoutubeQuery.download(Song.url, bot.loop, download_full=True)
+    download_data = await YoutubeQuery.download(song.url, bot.loop, download_full=True)
     song.set_downloaded_file(ytdl.prepare_filename(download_data))
 
 
@@ -256,11 +256,15 @@ class SongQueue:
         """
         Play the song after current index 
         """
-        self.songs[index].delete_downloaded_file()
+        if index >= len(self.songs) - 1:
+            self.songs[index].delete_downloaded_file()
         self.current_song = index + 1
         if self.current_song < len(self.songs) :
             # We are in bounds
+            if self.songs[self.current_song].url != self.songs[index].url:
+                self.songs[index].delete_downloaded_file()
             self.play_current_song()
+            
 
     async def play_current_song(self, func=None):
         """
@@ -275,7 +279,7 @@ class SongQueue:
 
     def clear_songs(self):
         self.songs = []
-        current_song = 0
+        self.current_song = 0
 
     async def play_song_at(self, index, func=None):
         """
@@ -286,9 +290,9 @@ class SongQueue:
             if not song.is_downloaded: await download_existing_song(song)
             self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
                                                         source=song.filename), 
-                                                        after=func)
+                                                        after=lambda e: (await func(index) for _ in '_').__anext__())
             self.currently_playing = True
-        await self.ctx.message(f"Now Playing: {song.title}")
+        await self.ctx.send(f"Now Playing: {song.title}")
 
     async def pause(self):
         if self.is_currently_playing(): await self.voice_channel.pause()
@@ -332,19 +336,19 @@ async def play(ctx, *, search):
     
     if not song_queue.is_currently_playing(): await song_queue.play_current_song()
     # Make the bot look like it's typing
-    async with ctx.typing():
-        # Get Song instance from queue
+    # async with ctx.typing():
+    #     # Get Song instance from queue
 
-        # song_to_play = await queue(ctx, url)
-        # filename = await download_youtube(song_to_play.url, loop=bot.loop)
+    #     # song_to_play = await queue(ctx, url)
+    #     # filename = await download_youtube(song_to_play.url, loop=bot.loop)
 
-        query = YoutubeQuery(url, bot.loop)
-        song = await query.download_from_list(0)
-        # Play the song in the voice channel
-        voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
-                                                    source=song.filename), 
-                                                    after=lambda: song.delete_downloaded_file())
-    await ctx.send(f"Now playing: {song.title}")
+    #     query = YoutubeQuery(url, bot.loop)
+    #     song = await query.download_from_list(0)
+    #     # Play the song in the voice channel
+    #     voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
+    #                                                 source=song.filename), 
+    #                                                 after=lambda: song.delete_downloaded_file())
+    # await ctx.send(f"Now playing: {song.title}")
     # except Exception as e:
     #     # TODO: Make this more detailed!
     #     # Some Error
