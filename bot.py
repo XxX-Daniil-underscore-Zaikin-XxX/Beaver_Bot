@@ -136,8 +136,6 @@ async def download_existing_song(song: Song):
     download_data = await YoutubeQuery.download(song.url, bot.loop, download_full=True)
     song.set_downloaded_file(ytdl.prepare_filename(download_data))
 
-
-
 async def download_info(url, loop):
     '''Download the video from given url'''
     loop = loop if loop else asyncio.get_event_loop()
