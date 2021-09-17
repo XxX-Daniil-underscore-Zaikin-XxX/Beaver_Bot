@@ -276,8 +276,8 @@ class SongQueue:
             if self.ctx != None and self.voice_channel == None: 
                 await join(self.ctx)
                 self.voice_channel = self.ctx.message.guild.voice_client
-            self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
-                                                        source=song.filename))
+            self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable,
+                                                           source=song.filename))
             await self.ctx.send(f"Now Playing: {song.title}")
         await asyncio.sleep(song.duration)
         await func()
@@ -349,6 +349,9 @@ async def skip(ctx):
     
     # Skip the song
     ctx.message.guild.voice_client.stop()
+    if song_queue.songs[song_queue.current_song].is_downloaded:
+        # File is there to delete
+        song_queue.songs[song_queue.current_song].delete_downloaded_file()
     song_queue.current_song += 1
     await song_queue.play_current_song()
 
