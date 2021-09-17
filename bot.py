@@ -217,10 +217,18 @@ class SongQueue:
 
     async def push_song(self, song):
         """
-        Add a song to the end of the queue
+        Add a song to the end of the queue if less than the limit
+        Return True if able to push / False otherwise 
         """
+        limit = 1.5 # hour
+        if song.duration >= limit*60*60:
+            # Song is larger than 1 hour
+            await self.ctx.send("Cannot queue song longer than 1 hour")
+            return False
+        
         self.songs.append(song)
         await self.ctx.send(f"{self.ctx.author} has queued {song.title}")
+        return True
 
     def remove_song(self, index):
         """
@@ -308,6 +316,10 @@ async def join(ctx):
 async def display_song_queue(ctx):
     '''Display queue'''
     async with ctx.typing():
+        if len(song_queue.songs) == 0:
+            # Queue is empty
+            await ctx.send("The queue is empty :(")
+            return 
         message = f"```\n{str(song_queue)}\n```"
     await ctx.send(message)
 
@@ -330,8 +342,8 @@ async def play(ctx, *, search):
     query = YoutubeQuery(url, bot.loop)
     data = await query.get_data()
     song = YoutubeQuery.get_songs_from_data(data)[0]
-    await song_queue.push_song(song)
-    if not song_queue.is_currently_playing(): 
+    result = await song_queue.push_song(song)
+    if result and not song_queue.is_currently_playing(): 
         await song_queue.play_current_song()
 
 def delete_files(filename):
