@@ -237,21 +237,7 @@ class SongQueue:
         
         # Remove from the queue
         del self.songs[index]
-
-    async def play_song_after_current(self):
-        """
-        Play the song after current index 
-        """
-        if self.current_song >= len(self.songs) - 1:
-            self.songs[self.current_song].delete_downloaded_file()
-        self.current_song = self.current_song + 1
-        if self.current_song < len(self.songs) :
-            # We are in bounds
-            if self.songs[self.current_song].url != self.songs[self.current_song - 1].url:
-                self.songs[self.current_song].delete_downloaded_file()
-            await self.play_current_song()
             
-
     async def play_current_song(self, func=None):
         """
         Play song at current queue index
@@ -260,7 +246,7 @@ class SongQueue:
         """
         if func == None:
             # Play in sequence
-            func = self.play_song_after_current
+            func = lambda x: self.remove_song(x)
         await self.play_song_at(self.current_song, func)
 
     def clear_songs(self):
@@ -277,8 +263,8 @@ class SongQueue:
             await join(self.ctx)
             self.voice_channel = self.ctx.message.guild.voice_client
         self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable, 
-                                                    source=song.filename), 
-                                                    after=lambda e: func())
+                                                       source=song.filename), 
+                                                       after=lambda e: func)
         await self.ctx.send(f"Now Playing: {song.title}")
 
     async def pause(self):
@@ -330,13 +316,27 @@ async def play(ctx, *, search):
         query = YoutubeQuery(url, bot.loop)
         data = await query.get_data()
         song = YoutubeQuery.get_songs_from_data(data)[0]
-        song_queue.push_song(song)
+        await song_queue.push_song(song)
         if not song_queue.is_currently_playing(): 
             await song_queue.play_current_song()
 
 def delete_files(filename):
     '''Delete the file at given filepath'''
     os.remove(filename)
+
+@bot.command(name='skip', help='Skip the current song')
+async def skip(ctx):
+    """
+    Skip the song currently playing
+    """
+    if song_queue.current_song >= len(song_queue.songs):
+        # We are out of bounds
+        return
+    
+    # Skip the song
+    ctx.message.guild.voice_client.stop()
+    song_queue.current_song += 1
+    await song_queue.play_current_song()
 
 @bot.command(name='pause', help='This command pauses the song')
 async def pause(ctx):
