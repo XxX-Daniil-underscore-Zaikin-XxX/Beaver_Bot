@@ -151,20 +151,7 @@ async def download_info(url, loop):
         filesize = data['filesize']
     filename = data['title']
     return filename
-
-@bot.command()
-async def queue(ctx, url):
-    '''Adds a song to the queue'''
-    if not len(song_queue):
-        # Queue empty
-        return YoutubeQuery(url, loop=bot.loop)
-    
-    # Queue has songs in it -> Add to queue and play top
-    song_queue.append(YoutubeQuery(url, loop=bot.loop))
-    await ctx.send(f"{ctx.author} has added to the queue!")
-    return song_queue.pop(0)
         
-
 async def query_youtube_info(search, loop):
     song = YoutubeQuery(search, loop)
     return await song.get_songs_from_data()
@@ -265,7 +252,6 @@ class SongQueue:
             if self.songs[self.current_song].url != self.songs[index].url:
                 self.songs[index].delete_downloaded_file()
             self.play_current_song()
-            
 
     async def play_current_song(self, func=None):
         """
@@ -335,26 +321,8 @@ async def play(ctx, *, search):
     song = await query.download_from_list(0)
     await song_queue.push_song(song)
     
-    if not song_queue.is_currently_playing(): await song_queue.play_current_song()
-    # Make the bot look like it's typing
-    # async with ctx.typing():
-    #     # Get Song instance from queue
-
-    #     # song_to_play = await queue(ctx, url)
-    #     # filename = await download_youtube(song_to_play.url, loop=bot.loop)
-
-    #     query = YoutubeQuery(url, bot.loop)
-    #     song = await query.download_from_list(0)
-    #     # Play the song in the voice channel
-    #     voice_channel.play(discord.FFmpegPCMAudio(executable="./ffmpeg.exe", 
-    #                                                 source=song.filename), 
-    #                                                 after=lambda: song.delete_downloaded_file())
-    # await ctx.send(f"Now playing: {song.title}")
-    # except Exception as e:
-    #     # TODO: Make this more detailed!
-    #     # Some Error
-    #     print(e)
-    #     await ctx.send("Something went wrong!")
+    if not song_queue.is_currently_playing(): 
+        await song_queue.play_current_song()
 
 def delete_files(filename):
     '''Delete the file at given filepath'''
