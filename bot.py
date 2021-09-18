@@ -312,7 +312,7 @@ async def join(ctx):
     channel = ctx.message.author.voice.channel
     await channel.connect()
 
-@bot.command(name='queue', help='Displays Queue')
+@bot.command(name='queue', help='Displays Queue', aliases=["q"])
 async def display_song_queue(ctx):
     '''Display queue'''
     async with ctx.typing():
@@ -323,7 +323,7 @@ async def display_song_queue(ctx):
         message = f"```\n{str(song_queue)}\n```"
     await ctx.send(message)
 
-@bot.command(help="Play a song")
+@bot.command(name='play', help="Play a song", aliases=["p"])
 async def play(ctx, *, search):
     '''Play a song with the given name'''
     server = ctx.message.guild
