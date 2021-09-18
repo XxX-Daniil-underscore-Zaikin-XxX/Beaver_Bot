@@ -3,6 +3,7 @@ import os
 import subprocess
 import asyncio
 import datetime
+import random
 
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -239,6 +240,8 @@ class SongQueue:
             self.voice_channel.play(discord.FFmpegPCMAudio(executable=self.executable,
                                                            source=song.filename))
             await self.ctx.send(f"Now Playing: {song.title}")
+        # TODO: pause function breaks sleep function
+        #       since the sleep can finish while song is still paused
         await asyncio.sleep(song.duration)
         await func()
 
@@ -274,6 +277,21 @@ async def download_info(url, loop):
 async def query_youtube_info(search, loop):
     song = YoutubeQuery(search, loop)
     return await song.get_songs_from_data()
+
+@bot.command(name='shuffle', help='Shuffles the queue')
+async def shuffle(ctx):
+    """
+    Shuffle the queue. Shuffles songs that are 
+    strictly greater than the currently selected song
+    """
+    # Get the first half of the queue including the current song
+    first_half = song_queue.songs[:song_queue.current_song + 1]
+    # Second hald of the queue excluding the current song
+    second_half = song_queue.songs[song_queue.current_song + 1:]
+    # Shuffle the songs
+    random.shuffle(second_half)
+    song_queue.songs = first_half + second_half
+    await ctx.send(f"{ctx.author} has shuffled the queue!")
 
 @bot.command(name='getinfo', help='Gets a bit of info about a song')
 async def get_song_info(ctx, *, search):
