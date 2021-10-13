@@ -167,7 +167,7 @@ class SongQueue:
         Inset a song into the queue at position index
         """
         self.songs[index:index] = [song]
-
+    
     async def push_song(self, song):
         """
         Add a song to the end of the queue if less than the limit
@@ -183,22 +183,8 @@ class SongQueue:
         await self.ctx.send(f"{self.ctx.author} has queued {song.title}")
         return True
 
-    def remove_song(self, index):
-        """
-        Remove a song at the given index
-        """
-        if index <= self.current_song:
-            # The song has already been played
-            # or is currently playing
-            return
-        
-        if self.songs[index].is_downloaded:
-            # Delete the file on disk
-            self.songs[index].delete_downloaded_file()
-        
-        # Remove from the queue
-        del self.songs[index]
-
+    ###########################################################################################
+    # Recurrent queue methods
     async def play_song_after_current(self):
         """
         Play the song after current index 
@@ -223,10 +209,6 @@ class SongQueue:
             func = self.play_song_after_current
         await self.play_song_at(self.current_song, func)
 
-    def clear_songs(self):
-        self.songs = []
-        self.current_song = 0
-
     async def play_song_at(self, index, func=None):
         """
         Play the song at given index
@@ -244,6 +226,31 @@ class SongQueue:
         #       since the sleep can finish while song is still paused
         await asyncio.sleep(song.duration)
         await func()
+    
+    ###########################################################################################
+    
+    def remove_song(self, index):
+        """
+        Remove a song at the given index
+        """
+        if index <= self.current_song:
+            # The song has already been played
+            # or is currently playing
+            return
+        
+        if self.songs[index].is_downloaded:
+            # Delete the file on disk
+            self.songs[index].delete_downloaded_file()
+        
+        # Remove from the queue
+        del self.songs[index]
+        
+    def clear_songs(self):
+        """
+        Clear and reset the queue
+        """
+        self.songs = []
+        self.current_song = 0
 
     async def pause(self):
         if self.is_currently_playing(): await self.voice_channel.pause()
