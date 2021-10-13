@@ -67,12 +67,54 @@ class YTDLSource(discord.PCMVolumeTransformer):
         filename = data['url'] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
+class Queue():
+
+    self.queue = [] #List that contains the players for audio
+    self.Type
+    self.Queue_ID
+
+    def __init__(self, type = "single_player_queue", queue_ID = 0, *args, **kwargs):
+        #allow diffrent queue types for youtube playlists etc to be implemented soon
+        self.Type = type
+        self.Queue_ID = queue_ID
+        pass
+
+    def add_queue_player(self):
+        #add a player to the queue
+        pass
+
+    def __iter__(self):
+        #override to itteration for the queue var
+        pass
+    
+    def __next__(self):
+        #override the next itterator to get the next item in queue
+        pass
+
+    def clear_queue(self):
+        #clear the queue
+        pass
+
+    def __len__(self):
+        #override for len
+        pass
+    
+    def get_queue_contents(self):
+        #GET all object names in queue
+        pass
+       
+
+
 
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = QUEUE
+        self.queue = Queue()
     
+    def get_player(self, url):
+        #returns a player:
+        pass
+
     @commands.command()
     async def join(self, ctx):
         """Join a discord voice channel"""
@@ -103,6 +145,7 @@ class Music(commands.Cog):
         except Exception as e:
             print(e)
             await ctx.send("Somenthing went wrong - please try again later!")
+
 
     @commands.command()
     async def pause(self, ctx):
@@ -183,14 +226,11 @@ class Music(commands.Cog):
 
     def start_playing(self, voice_client, player):
         """Start playing the queue"""
-        self.queue.insert(0, player)
-        i = 0
-        while i < len(self.queue):
-            try:
-                voice_client.play(self.queue[i], after=lambda e: print('Player error: %s' % e) if e else None)
-            except Exception as e:
-                print(e)
-            i += 1
+        try:
+            voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
+        except Exception as e:
+            print(e)
+
 
 def setup(client):
     client.add_cog(Music(client))
