@@ -73,6 +73,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queue = []
+        self.paused = False
     
     @commands.command()
     async def join(self, ctx):
@@ -107,6 +108,7 @@ class Music(commands.Cog):
         voice = get(self.bot.voice_clients, guild=ctx.guild)
 
         voice.pause()
+        self.paused = True
 
         user = ctx.message.author.mention
         await ctx.send(f"Bot was paused by {user}")
@@ -117,11 +119,11 @@ class Music(commands.Cog):
         voice = get(self.bot.voice_clients, guild=ctx.guild)
 
         voice.resume()
+        self.paused = False
 
         user = ctx.message.author.mention
         await ctx.send(f"Bot was resumed by {user}")
 
-    @commands.command()
     async def add_queue(self, ctx, player):
         """Add a song to the queue"""
         try:
@@ -151,12 +153,14 @@ class Music(commands.Cog):
         await ctx.send(f"The queue was cleared by {user}")
 
     @commands.command()
-    async def view_queue(self, ctx):
+    async def queue(self, ctx):
         """Print out the queue to the text channel"""
-        if self.queue.qsize() < 1:
+        if len(self.queue) < 1:
             await ctx.send("The queue is empty - nothing to see here!")
         else:
-            await ctx.send('\n'.join([f"{i+1}\t" + song.title for i, song in enumerate(self.queue)]))
+            await ctx.send('\n'.join(["```"] + 
+                                     [f"{i+1}\t" + 
+                                      song.title for i, song in enumerate(self.queue)] + ["\n```"]))
 
     @commands.command()
     async def leave(self, ctx):
@@ -176,7 +180,7 @@ class Music(commands.Cog):
         """Start playing the queue"""
         voice_client = ctx.message.guild.voice_client
         while len(self.queue) > 0:
-            if not voice_client.is_playing():
+            if not voice_client.is_playing() and not self.paused:
                 # Bot currently playing a song
                 player = self.queue.pop(0)
                 await ctx.send("Now playing a song!")
