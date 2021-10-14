@@ -72,7 +72,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = asyncio.Queue()
+        self.queue = []
     
     @commands.command()
     async def join(self, ctx):
@@ -125,7 +125,7 @@ class Music(commands.Cog):
     async def add_queue(self, ctx, player):
         """Add a song to the queue"""
         try:
-            await self.queue.put(player)
+            self.queue.append(player)
             user = ctx.message.author.mention
             await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
         except:
@@ -166,13 +166,19 @@ class Music(commands.Cog):
         await voice_client.disconnect()
         await ctx.send(f'Disconnected from {user}')
 
+    @commands.command()
+    async def skip(self, ctx):
+        voice = get(self.bot.voice_clients, guild=ctx.guild)
+        voice.stop()
+        await self.start_playing(ctx)
+    
     async def start_playing(self, ctx):
         """Start playing the queue"""
         voice_client = ctx.message.guild.voice_client
-        while self.queue.qsize() > 0:
+        while len(self.queue) > 0:
             if not voice_client.is_playing():
                 # Bot currently playing a song
-                player = await self.queue.get()
+                player = self.queue.pop(0)
                 await ctx.send("Now playing a song!")
                 voice_client.play(player)
             await asyncio.sleep(1)
