@@ -22,7 +22,7 @@ pip install -U git+https://github.com/l1ving/youtube-dl
 load_dotenv()
 
 DISCORD_TOKEN = os.getenv("discord_token")
-QUEUE = asyncio.Queue()
+# QUEUE = []
 
 youtube_dl.utils.bug_reports_message = lambda: ''
 
@@ -56,11 +56,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.url = data.get('url')
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False, play=False):
+    async def from_url(cls, url, *, loop=None, stream=True, play=False):
         """Prepare the song from given search or url"""
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream or play))
-
+        if loop is None:
+            loop = asyncio.get_event_loop()
+        data = ytdl.extract_info(url, download=not stream or play)
+        
         if 'entries' in data:
             data = data['entries'][0]
 
@@ -71,7 +72,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.queue = QUEUE
+        self.queue = asyncio.Queue()
     
     @commands.command()
     async def join(self, ctx):
@@ -94,12 +95,8 @@ class Music(commands.Cog):
                     # User is searching via words
                     url = "ytsearch1: " + url
                 player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-                if len(self.queue) == 0:
-                    self.start_playing(ctx.voice_client, player)
-                    await ctx.send(f':mag_right: **Searching for** ``' + url + '``\n**Now Playing:** ``{}'.format(player.title) + "``")
-                else:
-                    await self.add_queue(ctx, player)
-                    await ctx.send(f':mag_right: **Searching for** ``' + url + '``\n**Added to queue:** ``{}'.format(player.title) + "``")
+                await self.add_queue(ctx, player)
+                await self.start_playing(ctx)
         except Exception as e:
             print(e)
             await ctx.send("Somenthing went wrong - please try again later!")
@@ -128,7 +125,7 @@ class Music(commands.Cog):
     async def add_queue(self, ctx, player):
         """Add a song to the queue"""
         try:
-            self.queue.append(player)
+            await self.queue.put(player)
             user = ctx.message.author.mention
             await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
         except:
@@ -156,7 +153,7 @@ class Music(commands.Cog):
     @commands.command()
     async def view_queue(self, ctx):
         """Print out the queue to the text channel"""
-        if len(self.queue) < 1:
+        if self.queue.qsize() < 1:
             await ctx.send("The queue is empty - nothing to see here!")
         else:
             await ctx.send('\n'.join([f"{i+1}\t" + song.title for i, song in enumerate(self.queue)]))
@@ -169,6 +166,17 @@ class Music(commands.Cog):
         await voice_client.disconnect()
         await ctx.send(f'Disconnected from {user}')
 
+    async def start_playing(self, ctx):
+        """Start playing the queue"""
+        voice_client = ctx.message.guild.voice_client
+        while self.queue.qsize() > 0:
+            if not voice_client.is_playing():
+                # Bot currently playing a song
+                player = await self.queue.get()
+                await ctx.send("Now playing a song!")
+                voice_client.play(player)
+            await asyncio.sleep(1)
+    
     @play.before_invoke
     async def ensure_voice(self, ctx):
         """Make sure the bot connected to a voice channel"""
@@ -178,19 +186,6 @@ class Music(commands.Cog):
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
-        elif ctx.voice_client.is_playing():
-            ctx.voice_client.stop()
-
-    def start_playing(self, voice_client, player):
-        """Start playing the queue"""
-        self.queue.insert(0, player)
-        i = 0
-        while i < len(self.queue):
-            try:
-                voice_client.play(self.queue[i], after=lambda e: print('Player error: %s' % e) if e else None)
-            except Exception as e:
-                print(e)
-            i += 1
 
 def setup(client):
     client.add_cog(Music(client))
