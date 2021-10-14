@@ -5,5 +5,5 @@
 .env*
 *.png
 *.video*
-bbot/
-bbot/*
+venv/
+venv/*
