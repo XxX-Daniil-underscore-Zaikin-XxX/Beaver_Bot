@@ -87,7 +87,7 @@ class Music(commands.Cog):
 
         await channel.connect()
 
-    @commands.command()
+    @commands.command(name="play", aliases=["p"])
     async def play(self, ctx, *, url):
         """Play a song on with the given url/search terms"""
         try:
@@ -133,27 +133,28 @@ class Music(commands.Cog):
         except:
             await ctx.send(f"Couldnt add {player.title} to the queue!")
 
-    @commands.command()
-    async def remove_queue(self, ctx, number):
+    @commands.command(name="remove", aliases=["r"])
+    async def remove(self, ctx, number):
         """Remove a song from the queue"""
         try:
+            self.queue.remove(int(number) - 1)
             del(self.queue[int(number)])
             if len(self.queue) < 1:
                 await ctx.send("Your queue is empty now!")
             else:
-                await ctx.send(f'Your queue is now {self.queue}')
+                await ctx.send(f'Your queue is now {self.view_queue(ctx)}')
         except:
-            await ctx.send("List index out of range - the queue starts at 0")
+            await ctx.send("Remove Failed! Number is out of bounds...")
 
-    @commands.command()
-    async def clear_queue(self, ctx):
+    @commands.command(name="clear")
+    async def clear(self, ctx):
         """Clear the entire queue"""
         self.queue.clear()
         user = ctx.message.author.mention
         await ctx.send(f"The queue was cleared by {user}")
 
-    @commands.command()
-    async def queue(self, ctx):
+    @commands.command(name="queue", aliases=["q"])
+    async def view_queue(self, ctx):
         """Print out the queue to the text channel"""
         if len(self.queue) < 1:
             await ctx.send("The queue is empty - nothing to see here!")
