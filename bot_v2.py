@@ -2,6 +2,7 @@ import discord
 import asyncio
 import os
 import youtube_dl
+from youtube_search import YoutubeSearch
 
 import urllib.parse, urllib.request, re
 # import requests
@@ -53,21 +54,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.data = data
 
         self.title = data.get('title')
-        self.url = data.get('url')
-
+        self.url = data.get('url') 
+    
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=True, play=False):
+    async def from_url(cls, url, *, loop=None):
         """Prepare the song from given search or url"""
         if loop is None:
             loop = asyncio.get_event_loop()
-        data = ytdl.extract_info(url, download=not stream or play)
+        data = ytdl.extract_info(url, download=False)
         
-        if 'entries' in data:
-            data = data['entries'][0]
+        data = data["entries"][0]
 
-        filename = data['url'] if stream else ytdl.prepare_filename(data)
+        filename = data["url"] 
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
-
+            
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -75,6 +75,18 @@ class Music(commands.Cog):
         self.queue = []
         self.paused = False
     
+    @commands.command(name="search")
+    async def search(self, ctx, *, url):
+        async with ctx.typing():
+            if url[:3] == "http":
+                await ctx.send("Cannot search with a link!")
+            else:
+                # Get the top 10 results
+                results = YoutubeSearch(url, max_results=10).to_dict()
+                titles = [result["title"] for result in results]
+        
+        await ctx.send('\n'.join(["```"] + [f"{i+1}\t{title}" for i, title in enumerate(titles)] + ["\n```"]))
+            
     @commands.command(name="join")
     async def join(self, ctx):
         """Join a discord voice channel"""
@@ -150,17 +162,8 @@ class Music(commands.Cog):
         """Print out the queue to the text channel"""
         if len(self.queue) < 1:
             await ctx.send("The queue is empty - nothing to see here!")
-        else:
-            msg = '\n'
-            msg_list = ["```"]
-            for i, song in enumerate(self.queue):
-                if i == 0:
-                    msg_list += [f"[{i+1}]\t" + song.title]
-                else:
-                    msg_list += [f"{i+1}\t" + song.title]
-            msg_list += ["\n```"]
-            msg = msg.join(msg_list)
-            await ctx.send(msg)
+        else:   
+            await ctx.send('\n'.join(["```"] + [f"{i+1}\t" + song.title for i, song in enumerate(self.queue)] + ["\n```"]))       
 
     @commands.command()
     async def leave(self, ctx):
@@ -168,7 +171,7 @@ class Music(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         user = ctx.message.author.mention
         await voice_client.disconnect()
-        await ctx.send(f'Disconnected from {user}')
+        await ctx.send(f'Disconnected by {user}')
 
     @commands.command()
     async def skip(self, ctx):
@@ -182,7 +185,7 @@ class Music(commands.Cog):
             if url[:3] != "http":
                 # User is searching via words
                 url = "ytsearch1: " + url
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            player = await YTDLSource.from_url(url, loop=self.bot.loop)
         return player
     
     async def add_queue(self, ctx, player, position=-1):
@@ -204,10 +207,9 @@ class Music(commands.Cog):
         while len(self.queue) > 0:
             if not voice_client.is_playing() and not self.paused:
                 # Bot currently playing a song
-                player = self.queue[0]
+                player = self.queue.pop(0)
                 await ctx.send("Now playing a song!")
                 voice_client.play(player)
-            del self.queue[0]
             await asyncio.sleep(1)
     
     @play.before_invoke
