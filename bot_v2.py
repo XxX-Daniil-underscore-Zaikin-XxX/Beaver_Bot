@@ -75,7 +75,7 @@ class Music(commands.Cog):
         self.queue = []
         self.paused = False
     
-    @commands.command()
+    @commands.command(name="join")
     async def join(self, ctx):
         """Join a discord voice channel"""
         if not ctx.message.author.voice:
@@ -91,18 +91,20 @@ class Music(commands.Cog):
     async def play(self, ctx, *, url):
         """Play a song on with the given url/search terms"""
         try:
-            async with ctx.typing():
-                if url[:3] != "http":
-                    # User is searching via words
-                    url = "ytsearch1: " + url
-                player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-                await self.add_queue(ctx, player)
-                await self.start_playing(ctx)
+            player = await self.get_song(ctx, url)
+            await self.add_queue(ctx, player)
+            await self.start_playing(ctx)
         except Exception as e:
             print(e)
             await ctx.send("Somenthing went wrong - please try again later!")
 
-    @commands.command()
+    @commands.command(name="playtop", aliases=["pt"])
+    async def play_top(self, ctx, *, url):
+        player = await self.get_song(ctx, url)
+        await self.add_queue(ctx, player, position=0)
+        await self.start_playing(ctx)
+    
+    @commands.command(name="pause")
     async def pause(self, ctx):
         """Pause the bot"""
         voice = get(self.bot.voice_clients, guild=ctx.guild)
@@ -113,7 +115,7 @@ class Music(commands.Cog):
         user = ctx.message.author.mention
         await ctx.send(f"Bot was paused by {user}")
 
-    @commands.command()
+    @commands.command(name="resume")
     async def resume(self, ctx):
         """Resume the bot"""
         voice = get(self.bot.voice_clients, guild=ctx.guild)
@@ -124,21 +126,11 @@ class Music(commands.Cog):
         user = ctx.message.author.mention
         await ctx.send(f"Bot was resumed by {user}")
 
-    async def add_queue(self, ctx, player):
-        """Add a song to the queue"""
-        try:
-            self.queue.append(player)
-            user = ctx.message.author.mention
-            await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
-        except:
-            await ctx.send(f"Couldnt add {player.title} to the queue!")
-
     @commands.command(name="remove", aliases=["r"])
     async def remove(self, ctx, number):
         """Remove a song from the queue"""
         try:
-            self.queue.remove(int(number) - 1)
-            del(self.queue[int(number)])
+            del self.queue[int(number) - 1]
             if len(self.queue) < 1:
                 await ctx.send("Your queue is empty now!")
             else:
@@ -159,9 +151,16 @@ class Music(commands.Cog):
         if len(self.queue) < 1:
             await ctx.send("The queue is empty - nothing to see here!")
         else:
-            await ctx.send('\n'.join(["```"] + 
-                                     [f"{i+1}\t" + 
-                                      song.title for i, song in enumerate(self.queue)] + ["\n```"]))
+            msg = '\n'
+            msg_list = ["```"]
+            for i, song in enumerate(self.queue):
+                if i == 0:
+                    msg_list += [f"[{i+1}]\t" + song.title]
+                else:
+                    msg_list += [f"{i+1}\t" + song.title]
+            msg_list += ["\n```"]
+            msg = msg.join(msg_list)
+            await ctx.send(msg)
 
     @commands.command()
     async def leave(self, ctx):
@@ -176,6 +175,28 @@ class Music(commands.Cog):
         voice = get(self.bot.voice_clients, guild=ctx.guild)
         voice.stop()
         await self.start_playing(ctx)
+        
+    async def get_song(self, ctx, url):
+        """Get the player for given search query"""
+        async with ctx.typing():
+            if url[:3] != "http":
+                # User is searching via words
+                url = "ytsearch1: " + url
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+        return player
+    
+    async def add_queue(self, ctx, player, position=-1):
+        """Add a song to the queue at given position"""
+        try:
+            if position == -1:
+                self.queue.append(player)
+            else:
+                self.queue.insert(position, player)
+                
+            user = ctx.message.author.mention
+            await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
+        except:
+            await ctx.send(f"Couldnt add {player.title} to the queue!")
     
     async def start_playing(self, ctx):
         """Start playing the queue"""
@@ -183,9 +204,10 @@ class Music(commands.Cog):
         while len(self.queue) > 0:
             if not voice_client.is_playing() and not self.paused:
                 # Bot currently playing a song
-                player = self.queue.pop(0)
+                player = self.queue[0]
                 await ctx.send("Now playing a song!")
                 voice_client.play(player)
+            del self.queue[0]
             await asyncio.sleep(1)
     
     @play.before_invoke
