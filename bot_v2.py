@@ -108,8 +108,7 @@ class Music(commands.Cog):
         player = await self.get_song(ctx, titles[int(msg.content)])
         await self.add_queue(ctx, player)
         await self.start_playing(ctx)
-            
-            
+             
     @commands.command(name="join")
     async def join(self, ctx):
         """Join a discord voice channel"""
@@ -173,7 +172,7 @@ class Music(commands.Cog):
         except:
             await ctx.send("Remove Failed! Number is out of bounds...")
 
-    @commands.command(name="clear")
+    @commands.command(name="clear", aliases=["c"])
     async def clear(self, ctx):
         """Clear the entire queue"""
         self.queue.clear()
