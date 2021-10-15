@@ -89,7 +89,7 @@ class Music(commands.Cog):
         await ctx.send('\n'.join(["```"] + [f"{i+1}\t{title}" for i, title in enumerate(titles)] + ["\n```"]))
         
         def check(m):
-            # Check message
+            # Check if message is valid
             try:
                 m_num = int(m.content) - 1
             except ValueError:
@@ -102,10 +102,14 @@ class Music(commands.Cog):
                 # Invalid selection
                 return False
         
-        msg = await self.bot.wait_for("message", check=check)
-       
+        try:
+            msg = await self.bot.wait_for("message", check=check, timeout=10.0)
+        except asyncio.TimeoutError:
+            await ctx.send("Search canceled! Please search again...")
+            return
+
         # Valid selection
-        player = await self.get_song(ctx, titles[int(msg.content)])
+        player = await self.get_song(ctx, titles[int(msg.content) - 1])
         await self.add_queue(ctx, player)
         await self.start_playing(ctx)
              
