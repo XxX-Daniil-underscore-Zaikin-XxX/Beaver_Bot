@@ -80,12 +80,35 @@ class Music(commands.Cog):
         async with ctx.typing():
             if url[:3] == "http":
                 await ctx.send("Cannot search with a link!")
-            else:
-                # Get the top 10 results
-                results = YoutubeSearch(url, max_results=10).to_dict()
-                titles = [result["title"] for result in results]
+                return
+            
+            # Get the top 10 results
+            results = YoutubeSearch(url, max_results=10).to_dict()
+            titles = [result["title"] for result in results]
         
         await ctx.send('\n'.join(["```"] + [f"{i+1}\t{title}" for i, title in enumerate(titles)] + ["\n```"]))
+        
+        def check(m):
+            # Check message
+            try:
+                m_num = int(m.content) - 1
+            except ValueError:
+                return False
+            
+            if 0 <= m_num <= 9 and m.author == ctx.author:
+                # Valid selection
+                return True
+            else:
+                # Invalid selection
+                return False
+        
+        msg = await self.bot.wait_for("message", check=check)
+       
+        # Valid selection
+        player = await self.get_song(ctx, titles[int(msg.content)])
+        await self.add_queue(ctx, player)
+        await self.start_playing(ctx)
+            
             
     @commands.command(name="join")
     async def join(self, ctx):
@@ -213,6 +236,7 @@ class Music(commands.Cog):
             await asyncio.sleep(1)
     
     @play.before_invoke
+    @search.before_invoke
     async def ensure_voice(self, ctx):
         """Make sure the bot connected to a voice channel"""
         if ctx.voice_client is None:
