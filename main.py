@@ -1,22 +1,20 @@
 # TODO: When a song is playing and queue is empty, the bot
 #       breaks when a user .play and then .skip too quickly
-
-
-
+#
+# TODO: Add playlist funcitonality
 import discord
 import asyncio
 import os
 import youtube_dl
 from youtube_search import YoutubeSearch
 
-import urllib.parse, urllib.request, re
-# import requests
 from dotenv import load_dotenv
 
 from discord.ext import commands
 from discord import Embed, FFmpegPCMAudio
 from discord.utils import get
 
+import random
 '''
 
 INSTALLING YOUTUBE-DL
@@ -163,8 +161,9 @@ class Music(commands.Cog):
         voice.pause()
         self.paused = True
 
-        user = ctx.message.author.mention
-        await ctx.send(f"Bot was paused by {user}")
+        user = ctx.message.author
+        with ctx.typing():
+            await ctx.send(f"Bot was paused by {user}")
 
     @commands.command(name="resume")
     async def resume(self, ctx):
@@ -174,8 +173,9 @@ class Music(commands.Cog):
         voice.resume()
         self.paused = False
 
-        user = ctx.message.author.mention
-        await ctx.send(f"Bot was resumed by {user}")
+        user = ctx.message.author
+        with ctx.typing():
+            await ctx.send(f"Bot was resumed by {user}")
 
     @commands.command(name="remove", aliases=["r"])
     async def remove(self, ctx, number):
@@ -193,8 +193,9 @@ class Music(commands.Cog):
     async def clear(self, ctx):
         """Clear the entire queue"""
         self.queue.clear()
-        user = ctx.message.author.mention
-        await ctx.send(f"The queue was cleared by {user}")
+        user = ctx.message.author
+        with ctx.typing():
+            await ctx.send(f"The queue was cleared by {user}")
 
     @commands.command(name="queue", aliases=["q"])
     async def view_queue(self, ctx):
@@ -204,14 +205,21 @@ class Music(commands.Cog):
         else:   
             await ctx.send('\n'.join(["```"] + [f"{i+1}\t" + song.title for i, song in enumerate(self.queue)] + ["\n```"]))       
 
-    @commands.command()
+    @commands.command(name="leave")
     async def leave(self, ctx):
         """Disconnects the bot from the voice channel"""
         voice_client = ctx.message.guild.voice_client
-        user = ctx.message.author.mention
+        user = ctx.message.author
         await voice_client.disconnect()
         await ctx.send(f'Disconnected by {user}')
 
+    @commands.command(name="shuffle")
+    async def shuffle(self, ctx):
+        """ Shuffle the queue """
+        random.shuffle(self.queue)
+        with ctx.typing():
+            await ctx.send(f"The queue has been shuffled by {ctx.message.author}")
+    
     @commands.command()
     async def skip(self, ctx):
         voice = get(self.bot.voice_clients, guild=ctx.guild)
@@ -229,16 +237,17 @@ class Music(commands.Cog):
     
     async def add_queue(self, ctx, player, position=-1):
         """Add a song to the queue at given position"""
-        try:
-            if position == -1:
-                self.queue.append(player)
-            else:
-                self.queue.insert(position, player)
-                
-            user = ctx.message.author.mention
-            await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
-        except:
-            await ctx.send(f"Couldnt add {player.title} to the queue!")
+        with ctx.typing():
+            try:
+                if position == -1:
+                    self.queue.append(player)
+                else:
+                    self.queue.insert(position, player)
+                    
+                user = ctx.message.author
+                await ctx.send(f'``{player.title}`` was added to the queue by {user}!')
+            except:
+                await ctx.send(f"Couldnt add {player.title} to the queue!")
     
     async def start_playing(self, ctx):
         """Start playing the queue"""
