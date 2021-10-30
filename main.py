@@ -258,10 +258,7 @@ class Music(commands.Cog):
                 player = self.queue.pop(0)
                 await ctx.send("Now playing a song!")
                 voice_client.play(player)
-                while not voice_client.is_playing():
-                    # Wait for the bot to start
-                    await asyncio.sleep(1)
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
     
     @play.before_invoke
     @search.before_invoke
