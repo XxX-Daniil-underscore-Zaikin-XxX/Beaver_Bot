@@ -258,7 +258,7 @@ class Music(commands.Cog):
                 player = self.queue.pop(0)
                 await ctx.send("Now playing a song!")
                 voice_client.play(player)
-            await asyncio.sleep(10000)
+            await asyncio.sleep(1000)
     
     @play.before_invoke
     @search.before_invoke
@@ -276,6 +276,6 @@ def setup(client):
     
     
 if __name__ == '__main__':
-    bot = commands.Bot(command_prefix='-')
+    bot = commands.Bot(command_prefix='~')
     setup(bot)
     bot.run(DISCORD_TOKEN)
