@@ -77,6 +77,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.queue = []
         self.paused = False
+        self.song_num = -1
     
     @commands.command(name="stop")
     async def stop(self, ctx):
@@ -149,8 +150,9 @@ class Music(commands.Cog):
 
     @commands.command(name="playtop", aliases=["pt"])
     async def play_top(self, ctx, *, url):
+        """Puts a song in the queue such that it will play next"""
         player = await self.get_song(ctx, url)
-        await self.add_queue(ctx, player, position=0)
+        await self.add_queue(ctx, player, position=self.song_num + 1)
         self.start_playing(ctx)
     
     @commands.command(name="pause")
@@ -202,8 +204,10 @@ class Music(commands.Cog):
         """Print out the queue to the text channel"""
         if len(self.queue) < 1:
             await ctx.send("The queue is empty - nothing to see here!")
-        else:   
-            await ctx.send('\n'.join(["```"] + [f"{i+1}\t" + song.title for i, song in enumerate(self.queue)] + ["\n```"]))       
+        else:  
+            queue_msg = ["```"] + [f" {i+1}\t" + song.title if i != self.song_num else
+                                   f"[{i+1}]\t" + song.title for i, song in enumerate(self.queue)] + ["\n```"]
+            await ctx.send('\n'.join(queue_msg))       
 
     @commands.command(name="leave")
     async def leave(self, ctx):
@@ -211,6 +215,7 @@ class Music(commands.Cog):
         voice_client = ctx.message.guild.voice_client
         user = ctx.message.author
         await voice_client.disconnect()
+        self.reset_bot()
         await ctx.send(f'Disconnected by {user}')
 
     @commands.command(name="shuffle")
@@ -237,7 +242,7 @@ class Music(commands.Cog):
     
     async def add_queue(self, ctx, player, position=-1):
         """Add a song to the queue at given position"""
-        with ctx.typing():
+        async with ctx.typing():
             try:
                 if position == -1:
                     self.queue.append(player)
@@ -249,24 +254,32 @@ class Music(commands.Cog):
             except:
                 await ctx.send(f"Couldnt add {player.title} to the queue!")
     
+    def reset_bot(self):
+        """Clear and reset the queue counter"""
+        self.queue.clear()
+        self.song_num = -1
+    
     def start_playing(self, ctx):
         """Start playing the queue"""
         voice_client = ctx.message.guild.voice_client
         
         if not voice_client.is_playing() and not self.paused:
             # Bot currently idle
-            if len(self.queue) > 0:
+            if self.song_num < len(self.queue) - 1:
                 # There are songs available to play
-                player = self.queue.pop(0)
+                self.song_num += 1
+                player = self.queue[self.song_num]
                 asyncio.run_coroutine_threadsafe(ctx.send(f"Now playing {player.title}"), self.bot.loop)
-                voice_client.play(player, after=lambda e: print("Something went wrong in the queue!") if e 
-                                else self.start_playing(ctx))
+                voice_client.play(player, after=lambda e: 
+                                  asyncio.run_coroutine_threadsafe("Something went wrong in the queue!") if e 
+                                  else self.start_playing(ctx))
             else:
                 # Disconnect after certain time limit
                 asyncio.run_coroutine_threadsafe(asyncio.sleep(600), self.bot.loop)
                 if not voice_client.is_playing():
                     asyncio.run_coroutine_threadsafe(voice_client.disconnect(), self.bot.loop)
                     asyncio.run_coroutine_threadsafe(ctx.send("Bot was inactive for too long!"), self.bot.loop)
+                    self.reset_bot()
     
     @play.before_invoke
     @search.before_invoke
@@ -284,6 +297,6 @@ def setup(client):
     
     
 if __name__ == '__main__':
-    bot = commands.Bot(command_prefix='-')
+    bot = commands.Bot(command_prefix='~')
     setup(bot)
     bot.run(DISCORD_TOKEN)
