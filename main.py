@@ -122,7 +122,7 @@ class Music(commands.Cog):
         # Valid selection
         player = await self.get_song(ctx, titles[int(msg.content) - 1])
         await self.add_queue(ctx, player)
-        await self.start_playing(ctx)
+        self.start_playing(ctx)
              
     @commands.command(name="join")
     async def join(self, ctx):
@@ -142,7 +142,7 @@ class Music(commands.Cog):
         try:
             player = await self.get_song(ctx, url)
             await self.add_queue(ctx, player)
-            await self.start_playing(ctx)
+            self.start_playing(ctx)
         except Exception as e:
             print(e)
             await ctx.send("Somenthing went wrong - please try again later!")
@@ -151,7 +151,7 @@ class Music(commands.Cog):
     async def play_top(self, ctx, *, url):
         player = await self.get_song(ctx, url)
         await self.add_queue(ctx, player, position=0)
-        await self.start_playing(ctx)
+        self.start_playing(ctx)
     
     @commands.command(name="pause")
     async def pause(self, ctx):
@@ -224,7 +224,7 @@ class Music(commands.Cog):
     async def skip(self, ctx):
         voice = get(self.bot.voice_clients, guild=ctx.guild)
         voice.stop()
-        await self.start_playing(ctx)
+        self.start_playing(ctx)
         
     async def get_song(self, ctx, url):
         """Get the player for given search query"""
@@ -249,16 +249,24 @@ class Music(commands.Cog):
             except:
                 await ctx.send(f"Couldnt add {player.title} to the queue!")
     
-    async def start_playing(self, ctx):
+    def start_playing(self, ctx):
         """Start playing the queue"""
         voice_client = ctx.message.guild.voice_client
-        while len(self.queue) > 0:
-            if not voice_client.is_playing() and not self.paused:
-                # Bot currently playing a song
+        
+        if not voice_client.is_playing() and not self.paused:
+            # Bot currently idle
+            if len(self.queue) > 0:
+                # There are songs available to play
                 player = self.queue.pop(0)
-                await ctx.send("Now playing a song!")
-                voice_client.play(player)
-            await asyncio.sleep(1000)
+                asyncio.run_coroutine_threadsafe(ctx.send(f"Now playing {player.title}"), self.bot.loop)
+                voice_client.play(player, after=lambda e: print("Something went wrong in the queue!") if e 
+                                else self.start_playing(ctx))
+            else:
+                # Disconnect after certain time limit
+                asyncio.run_coroutine_threadsafe(asyncio.sleep(600), self.bot.loop)
+                if not voice_client.is_playing():
+                    asyncio.run_coroutine_threadsafe(voice_client.disconnect(), self.bot.loop)
+                    asyncio.run_coroutine_threadsafe(ctx.send("Bot was inactive for too long!"), self.bot.loop)
     
     @play.before_invoke
     @search.before_invoke
