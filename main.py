@@ -297,6 +297,6 @@ def setup(client):
     
     
 if __name__ == '__main__':
-    bot = commands.Bot(command_prefix='~')
+    bot = commands.Bot(command_prefix='-')
     setup(bot)
     bot.run(DISCORD_TOKEN)
